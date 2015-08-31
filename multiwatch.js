@@ -6,6 +6,8 @@ var videos = [
 'zvwjGiPVoeQ',
 'lJ5CWrAkseo'];
 var $_GET = getQueryParams(document.location.search); 
+var quality = $_GET["q"] ? $_GET["q"] : "medium";
+var progress = 0;
 
 function activate(id) {
 	$('video[id^=vid]').prop('muted', true);
@@ -26,8 +28,27 @@ function pauseAll() {
 	})
 }
 
+function waitforBuffer() {
+	pauseAll();
+	$('video[id^=vid]').off("waiting");
+	$(document).one("vidsReady", function () {
+		setTimeout(function () {
+			startAll();
+			$('video[id^=vid]').on("waiting", waitforBuffer);
+		}, 1000);
+		
+	});
+}
+
+function startBuffer() {
+	$('video[id^=vid]').prop('muted', true);
+	startAll();
+	setTimeout(pauseAll(), 2000);
+}
+
 function setTime(time) {
 	$('video[id^=vid]').off("seeked");
+	//Nachdem die Zeit geändert wurde können wir das event wieder erfassen
 	$('video[id^=vid]').one("seeked", function () {
 		$(this).on("seeked", function () {
 			setTime($(this).prop('currentTime'));
@@ -76,6 +97,7 @@ function startUp() {
 	$('video[id^=vid]').on("pause", pauseAll);
 	$('video[id^=vid]').on("play", startAll);
 	$('video[id^=vid]').on("canplay", videosReady);
+	$('video[id^=vid]').on("waiting", waitforBuffer);
 	addSeekListener();
 
 	$("#precache").remove();
@@ -89,6 +111,15 @@ function startUp() {
 	});
 }
 
+function progressbar() {
+	console.log("test");
+	progress = progress+1;
+	if (progress==100) {
+		clearInterval(interval);
+	}
+	$("#bar").css("width",progress+"%");
+}
+
 $( document ).ready(function () {
 	if ($_GET["vids"]) {
 		videos = $_GET["vids"].split("|"); 
@@ -97,12 +128,14 @@ $( document ).ready(function () {
 	var players = new Array();
 	$.each(videos, function (index, value) {
 		YoutubeVideo(value, function(video){
-			var vsrc =  video.getSource("video/mp4", "medium");
+			var vsrc =  video.getSource("video/mp4", quality);
 			$('#main').append("<div class='hidden embed-responsive embed-responsive-16by9' id='parent"+index+"'><video controls preload'auto' src='"+ vsrc.url +"' id='vid"+index+"'></video></div>");	
 		});
 	});
+	setTimeout(startBuffer, 2000);
+	window.interval = setInterval(progressbar, 100);
 	setTimeout(function () {
 		startUp();
-	}, 5000);
+	}, 10000);
 	
 });
